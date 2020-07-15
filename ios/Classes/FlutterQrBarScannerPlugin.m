@@ -2,7 +2,9 @@
 
 #import "FlutterQrBarScannerPlugin.h"
 #import <libkern/OSAtomic.h>
-#import "GoogleMobileVision/GoogleMobileVision.h"
+#import "MLKit.h"
+
+@import MLKitBarcodeScanning;
 
 @interface NSError (FlutterError)
 @property(readonly, nonatomic) FlutterError *flutterError;
@@ -27,7 +29,6 @@
 @property(readonly, nonatomic) CMVideoDimensions previewSize;
 @property(readonly, nonatomic) dispatch_queue_t mainQueue;
 
-@property(nonatomic, strong) GMVDetector *barcodeDetector;
 @property(nonatomic, copy) void (^onCodeAvailable)(NSString *);
 
 - (instancetype)initWithErrorRef:(NSError **)error;
@@ -80,9 +81,7 @@
     [_captureSession addInputWithNoConnections:input];
     [_captureSession addOutputWithNoConnections:output];
     [_captureSession addConnection:connection];
-    
-    _barcodeDetector = [GMVDetector detectorOfType:GMVDetectorTypeBarcode options:nil];
-    
+        
     return self;
 }
 
@@ -129,30 +128,66 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         self.onFrameAvailable();
     });
     
-    ///////// TODO: dispatch this to a background thread (or at least later on main thread?)!
-    /// process the frame with GMV
-    AVCaptureDevicePosition devicePosition = AVCaptureDevicePositionBack;
-    UIDeviceOrientation deviceOrientation = [[UIDevice currentDevice] orientation];
-    // TODO: last known orientation?
-    GMVImageOrientation orientation = [GMVUtility imageOrientationFromOrientation:deviceOrientation withCaptureDevicePosition:devicePosition defaultDeviceOrientation:UIDeviceOrientationPortrait];
+    // Define the options for a barcode detector.
+    // [START config_barcode]
+    MLKBarcodeFormat format = MLKBarcodeFormatAll;
+    MLKBarcodeScannerOptions *barcodeOptions =
+        [[MLKBarcodeScannerOptions alloc] initWithFormats:format];
+    // [END config_barcode]
+
+    // Create a barcode detector.
+    // [START init_barcode]
+    MLKBarcodeScanner *barcodeScanner = [MLKBarcodeScanner barcodeScannerWithOptions:barcodeOptions];
+    // [END init_barcode]
     
-    NSDictionary *options = @{
-        GMVDetectorImageOrientation: @(orientation)
-    };
+    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithBuffer:sampleBuffer];
+    UIImageOrientation orientation = [self imageOrientationFromDeviceOrientation:UIDevice.currentDevice.orientation
+        cameraPosition:AVCaptureDevicePositionBack];
+
+    visionImage.orientation = orientation;
     
-    UIImage *image = [UIImage imageWithCGImage:cgImageRef];
-    NSArray<GMVBarcodeFeature *> *barcodes = [_barcodeDetector featuresInImage:image options:options];
-    image = nil;
     CGImageRelease(cgImageRef);
 
-    if (barcodes.count > 0) {
-        GMVBarcodeFeature *barcode0 = barcodes[0];
-        NSString * value = [barcode0 rawValue];
-        NSLog(@"Detected barcode: %@", value);
-        dispatch_async(_mainQueue, ^{
-            self->_onCodeAvailable(value);
-        });
-    }
+    [barcodeScanner processImage:visionImage
+                  completion:^(NSArray<MLKBarcode *> *_Nullable barcodes,
+                               NSError *_Nullable error) {
+        if (error != nil) {
+            NSLog(@"Error while detecting barcode: %@", error);
+            return;
+        }
+        if (barcodes.count > 0) {
+            MLKBarcode *barcode0 = barcodes[0];
+            NSString * value = [barcode0 rawValue];
+            NSLog(@"Detected barcode: %@", value);
+            dispatch_async(_mainQueue, ^{
+                self->_onCodeAvailable(value);
+            });
+        }
+    }];
+}
+
+- (UIImageOrientation)
+  imageOrientationFromDeviceOrientation:(UIDeviceOrientation)deviceOrientation
+                         cameraPosition:(AVCaptureDevicePosition)cameraPosition {
+  switch (deviceOrientation) {
+    case UIDeviceOrientationPortrait:
+      return cameraPosition == AVCaptureDevicePositionFront ? UIImageOrientationLeftMirrored
+                                                            : UIImageOrientationRight;
+
+    case UIDeviceOrientationLandscapeLeft:
+      return cameraPosition == AVCaptureDevicePositionFront ? UIImageOrientationDownMirrored
+                                                            : UIImageOrientationUp;
+    case UIDeviceOrientationPortraitUpsideDown:
+      return cameraPosition == AVCaptureDevicePositionFront ? UIImageOrientationRightMirrored
+                                                            : UIImageOrientationLeft;
+    case UIDeviceOrientationLandscapeRight:
+      return cameraPosition == AVCaptureDevicePositionFront ? UIImageOrientationUpMirrored
+                                                            : UIImageOrientationDown;
+    case UIDeviceOrientationUnknown:
+    case UIDeviceOrientationFaceUp:
+    case UIDeviceOrientationFaceDown:
+      return UIImageOrientationUp;
+  }
 }
 
 - (void)heartBeat {
