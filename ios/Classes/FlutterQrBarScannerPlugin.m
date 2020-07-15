@@ -28,6 +28,7 @@
 @property(readonly) CVPixelBufferRef volatile latestPixelBuffer;
 @property(readonly, nonatomic) CMVideoDimensions previewSize;
 @property(readonly, nonatomic) dispatch_queue_t mainQueue;
+@property(readonly, nonatomic) MLKBarcodeScanner *barcodeScanner;
 
 @property(nonatomic, copy) void (^onCodeAvailable)(NSString *);
 
@@ -40,6 +41,18 @@
     self = [super init];
     NSAssert(self, @"super init cannot be nil");
     _captureSession = [[AVCaptureSession alloc] init];
+    
+    // Define the options for a barcode detector.
+    // [START config_barcode]
+    MLKBarcodeFormat format = MLKBarcodeFormatAll;
+    MLKBarcodeScannerOptions *barcodeOptions =
+        [[MLKBarcodeScannerOptions alloc] initWithFormats:format];
+    // [END config_barcode]
+
+    // Create a barcode detector.
+    // [START init_barcode]
+    _barcodeScanner = [MLKBarcodeScanner barcodeScannerWithOptions:barcodeOptions];
+    // [END init_barcode]
     
     if (@available(iOS 10.0, *)) {
         _captureDevice = [AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera mediaType:AVMediaTypeVideo position:AVCaptureDevicePositionBack];
@@ -128,42 +141,34 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         self.onFrameAvailable();
     });
     
-    // Define the options for a barcode detector.
-    // [START config_barcode]
-    MLKBarcodeFormat format = MLKBarcodeFormatAll;
-    MLKBarcodeScannerOptions *barcodeOptions =
-        [[MLKBarcodeScannerOptions alloc] initWithFormats:format];
-    // [END config_barcode]
-
-    // Create a barcode detector.
-    // [START init_barcode]
-    MLKBarcodeScanner *barcodeScanner = [MLKBarcodeScanner barcodeScannerWithOptions:barcodeOptions];
-    // [END init_barcode]
+    UIImage *image = [UIImage imageWithCGImage:cgImageRef];
+    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:image];
     
-    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithBuffer:sampleBuffer];
     UIImageOrientation orientation = [self imageOrientationFromDeviceOrientation:UIDevice.currentDevice.orientation
         cameraPosition:AVCaptureDevicePositionBack];
 
     visionImage.orientation = orientation;
+    [self scanBarcodesOnDeviceInImage:visionImage];
     
     CGImageRelease(cgImageRef);
+}
 
-    [barcodeScanner processImage:visionImage
-                  completion:^(NSArray<MLKBarcode *> *_Nullable barcodes,
-                               NSError *_Nullable error) {
-        if (error != nil) {
-            NSLog(@"Error while detecting barcode: %@", error);
-            return;
-        }
-        if (barcodes.count > 0) {
-            MLKBarcode *barcode0 = barcodes[0];
-            NSString * value = [barcode0 rawValue];
-            NSLog(@"Detected barcode: %@", value);
-            dispatch_async(_mainQueue, ^{
-                self->_onCodeAvailable(value);
-            });
-        }
-    }];
+- (void)scanBarcodesOnDeviceInImage:(MLKVisionImage *)image {
+  NSError *error;
+  NSArray<MLKBarcode *> *barcodes = [_barcodeScanner resultsInImage:image error:&error];
+  
+  dispatch_async(_mainQueue, ^{
+      if (error != nil) {
+          NSLog(@"Error while detecting barcode: %@", error);
+          return;
+      }
+      if (barcodes.count > 0) {
+          MLKBarcode *barcode0 = barcodes[0];
+          NSString * value = [barcode0 rawValue];
+          NSLog(@"Detected barcode: %@", value);
+          _onCodeAvailable(value);
+      }
+  });
 }
 
 - (UIImageOrientation)
