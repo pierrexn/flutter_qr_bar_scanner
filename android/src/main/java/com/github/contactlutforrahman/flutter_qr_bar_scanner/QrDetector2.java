@@ -10,8 +10,14 @@ import android.util.SparseArray;
 
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.Frame;
-import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
+import com.google.mlkit.vision.barcode.Barcode;
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
@@ -19,6 +25,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.List;
 
 /**
  * Allows QrCamera classes to send frames to a Detector
@@ -27,12 +34,10 @@ import java.util.concurrent.locks.ReentrantLock;
 class QrDetector2 {
     private static final String TAG = "cgl.fqs.QrDetector";
     private final QrReaderCallbacks communicator;
-    private final Detector<Barcode> detector;
     private final Lock imageToCheckLock = new ReentrantLock();
     private final Lock nextImageLock = new ReentrantLock();
     private final AtomicBoolean isScheduled = new AtomicBoolean(false);
     private final AtomicBoolean needsScheduling = new AtomicBoolean(false);
-
 
     private final AtomicBoolean nextImageSet = new AtomicBoolean(false);
 
@@ -42,7 +47,6 @@ class QrDetector2 {
     QrDetector2(QrReaderCallbacks communicator, Context context, int formats) {
         Log.i(TAG, "Making detector2 for formats: " + formats);
         this.communicator = communicator;
-        this.detector = new BarcodeDetector.Builder(context.getApplicationContext()).setBarcodeFormats(formats).build();
     }
 
     private void maybeStartProcessing() {
@@ -98,9 +102,8 @@ class QrDetector2 {
             Image.Plane uPlane = planes[1];
             Image.Plane vPlane = planes[2];
 
-            ByteBuffer yBufferDirect = yPlane.getBuffer(),
-                uBufferDirect = uPlane.getBuffer(),
-                vBufferDirect = vPlane.getBuffer();
+            ByteBuffer yBufferDirect = yPlane.getBuffer(), uBufferDirect = uPlane.getBuffer(),
+                    vBufferDirect = vPlane.getBuffer();
 
             if (yPlaneBytes.length != yBufferDirect.capacity()) {
                 yPlaneBytes = new byte[yBufferDirect.capacity()];
@@ -140,7 +143,6 @@ class QrDetector2 {
 
             ByteBuffer nv21Buffer = ByteBuffer.wrap(nv21ImageBytes);
 
-
             for (int i = 0; i < height; ++i) {
                 nv21Buffer.put(yPlaneBytes, i * yPlaneRowStride, width);
             }
@@ -159,7 +161,7 @@ class QrDetector2 {
         }
     }
 
-    private static class QrTaskV2 extends AsyncTask<Void, Void, SparseArray<Barcode>> {
+    private static class QrTaskV2 extends AsyncTask<Void, Void, List<Barcode>> {
 
         private final WeakReference<QrDetector2> qrDetector;
 
@@ -168,10 +170,11 @@ class QrDetector2 {
         }
 
         @Override
-        protected SparseArray<Barcode> doInBackground(Void... voids) {
+        protected List<Barcode> doInBackground(Void... voids) {
 
             QrDetector2 qrDetector = this.qrDetector.get();
-            if (qrDetector == null) return null;
+            if (qrDetector == null)
+                return null;
 
             qrDetector.needsScheduling.set(false);
             qrDetector.isScheduled.set(false);
@@ -199,19 +202,31 @@ class QrDetector2 {
                 }
             }
 
-            Frame.Builder builder = new Frame.Builder().setImageData(imageBuffer, width, height, ImageFormat.NV21);
-            return qrDetector.detector.detect(builder.build());
+            BarcodeScannerOptions options = new BarcodeScannerOptions.Builder()
+                    .setBarcodeFormats(Barcode.FORMAT_QR_CODE, Barcode.FORMAT_AZTEC).build();
+
+            BarcodeScanner scanner = BarcodeScanning.getClient(options);
+            InputImage image = InputImage.fromByteBuffer(imageBuffer, width, height, 0, InputImage.IMAGE_FORMAT_NV21);
+
+            try {
+                List<Barcode> detected = Tasks.await(scanner.process(image));
+                return detected;
+            } catch (Exception e) {
+                Log.e(TAG, "Error while reading code" + e.getMessage());
+                return null;
+            }
         }
 
         @Override
-        protected void onPostExecute(SparseArray<Barcode> detectedItems) {
+        protected void onPostExecute(List<Barcode> detectedItems) {
             QrDetector2 qrDetector = this.qrDetector.get();
-            if (qrDetector == null) return;
+            if (qrDetector == null)
+                return;
 
             if (detectedItems != null) {
                 for (int i = 0; i < detectedItems.size(); ++i) {
-                    Log.i(TAG, "Item read: " + detectedItems.valueAt(i).rawValue);
-                    qrDetector.communicator.qrRead(detectedItems.valueAt(i).rawValue);
+                    Log.i(TAG, "Item read: " + detectedItems.get(i).getRawValue());
+                    qrDetector.communicator.qrRead(detectedItems.get(i).getRawValue());
                 }
             }
 
