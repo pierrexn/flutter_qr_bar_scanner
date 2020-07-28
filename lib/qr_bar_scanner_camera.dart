@@ -54,6 +54,7 @@ class QRBarScannerCameraState extends State<QRBarScannerCamera> with WidgetsBind
   @override
   dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    stop();
     super.dispose();
   }
 
@@ -102,12 +103,6 @@ class QRBarScannerCameraState extends State<QRBarScannerCamera> with WidgetsBind
     (() async {
       await FlutterQrReader.stop();
     })();
-  }
-
-  @override
-  deactivate() {
-    super.deactivate();
-    FlutterQrReader.stop();
   }
 
   @override
