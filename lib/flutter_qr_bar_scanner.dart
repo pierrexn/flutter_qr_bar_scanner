@@ -13,7 +13,6 @@ import 'package:flutter/services.dart';
 //  }
 //}
 
-
 class PreviewDetails {
   num height;
   num width;
@@ -45,7 +44,8 @@ const _defaultBarcodeFormats = const [
 ];
 
 class FlutterQrReader {
-  static const MethodChannel _channel = const MethodChannel('com.github.contactlutforrahman/flutter_qr_bar_scanner');
+  static const MethodChannel _channel = const MethodChannel(
+      'com.github.contactlutforrahman/flutter_qr_bar_scanner');
   static QrChannelReader channelReader = new QrChannelReader(_channel);
   //Set target size before starting
   static Future<PreviewDetails> start({
@@ -53,15 +53,24 @@ class FlutterQrReader {
     @required int width,
     @required QRCodeHandler qrCodeHandler,
     List<BarcodeFormats> formats = _defaultBarcodeFormats,
+    String cameraId,
   }) async {
     final _formats = formats ?? _defaultBarcodeFormats;
     assert(_formats.length > 0);
 
-    List<String> formatStrings = _formats.map((format) => format.toString().split('.')[1]).toList(growable: false);
+    List<String> formatStrings = _formats
+        .map((format) => format.toString().split('.')[1])
+        .toList(growable: false);
 
     channelReader.setQrCodeHandler(qrCodeHandler);
-    var details = await _channel.invokeMethod(
-        'start', {'targetHeight': height, 'targetWidth': width, 'heartbeatTimeout': 0, 'formats': formatStrings});
+    print("Got camera $cameraId");
+    var details = await _channel.invokeMethod('start', {
+      'targetHeight': height,
+      'targetWidth': width,
+      'heartbeatTimeout': 0,
+      'formats': formatStrings,
+      'cameraId': cameraId
+    });
 
     // invokeMethod returns Map<dynamic,...> in dart 2.0
     assert(details is Map<dynamic, dynamic>);
@@ -71,7 +80,8 @@ class FlutterQrReader {
     num surfaceHeight = details["surfaceHeight"];
     num surfaceWidth = details["surfaceWidth"];
 
-    return new PreviewDetails(surfaceHeight, surfaceWidth, orientation, textureId);
+    return new PreviewDetails(
+        surfaceHeight, surfaceWidth, orientation, textureId);
   }
 
   static Future stop() {
