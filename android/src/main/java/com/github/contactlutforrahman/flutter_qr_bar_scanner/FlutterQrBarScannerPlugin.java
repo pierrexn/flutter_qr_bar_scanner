@@ -90,6 +90,10 @@ public class FlutterQrBarScannerPlugin implements MethodCallHandler, QrReaderCal
                     Integer targetWidth = methodCall.argument("targetWidth");
                     Integer targetHeight = methodCall.argument("targetHeight");
                     List<String> formatStrings = methodCall.argument("formats");
+                    String cameraId = methodCall.argument("cameraId");
+                    
+                    Log.d(TAG, "Camera id was sent: " + cameraId);
+
 
                     if (targetWidth == null || targetHeight == null) {
                         result.error("INVALID_ARGUMENT", "Missing a required argument", "Expecting targetWidth, targetHeight, and optionally heartbeatTimeout");
@@ -100,7 +104,7 @@ public class FlutterQrBarScannerPlugin implements MethodCallHandler, QrReaderCal
 
                     TextureRegistry.SurfaceTextureEntry textureEntry = textures.createSurfaceTexture();
                     QrReader reader = new QrReader(targetWidth, targetHeight, context, barcodeFormats,
-                        this, this, textureEntry.surfaceTexture());
+                        this, this, textureEntry.surfaceTexture(), cameraId);
 
                     readingInstance = new ReadingInstance(reader, textureEntry, result);
                     try {
@@ -123,6 +127,9 @@ public class FlutterQrBarScannerPlugin implements MethodCallHandler, QrReaderCal
                     Integer targetWidth = methodCall.argument("targetWidth");
                     Integer targetHeight = methodCall.argument("targetHeight");
                     List<String> formatStrings = methodCall.argument("formats");
+                    String cameraId = methodCall.argument("cameraId");
+
+                    Log.d(TAG, "Camera id was sent: " + cameraId);
 
                     if (targetWidth == null || targetHeight == null) {
                         result.error("INVALID_ARGUMENT", "Missing a required argument", "Expecting targetWidth, targetHeight, and optionally heartbeatTimeout");
@@ -133,7 +140,7 @@ public class FlutterQrBarScannerPlugin implements MethodCallHandler, QrReaderCal
 
                     TextureRegistry.SurfaceTextureEntry textureEntry = textures.createSurfaceTexture();
                     QrReader reader = new QrReader(targetWidth, targetHeight, context, barcodeFormats,
-                        this, this, textureEntry.surfaceTexture());
+                        this, this, textureEntry.surfaceTexture(), cameraId);
 
                     readingInstance = new ReadingInstance(reader, textureEntry, result);
                     try {

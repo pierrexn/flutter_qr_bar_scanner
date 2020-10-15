@@ -60,13 +60,15 @@ class QrCameraC2 implements QrCamera {
     private int orientation;
     private CameraDevice cameraDevice;
     private CameraCharacteristics cameraCharacteristics;
+    private String cameraId;
 
-    QrCameraC2(int width, int height, Context context, SurfaceTexture texture, QrDetector2 detector) {
+    QrCameraC2(int width, int height, Context context, SurfaceTexture texture, QrDetector2 detector, String cameraId) {
         this.targetWidth = width;
         this.targetHeight = height;
         this.context = context;
         this.texture = texture;
         this.detector = detector;
+        this.cameraId = cameraId;
     }
 
     @Override
@@ -93,28 +95,32 @@ class QrCameraC2 implements QrCamera {
         }
 
         String cameraId = null;
-        try {
-            String[] cameraIdList = manager.getCameraIdList();
-            for (String id : cameraIdList) {
-                CameraCharacteristics cameraCharacteristics = manager.getCameraCharacteristics(id);
-                Integer integer = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
-                if (integer != null && integer == LENS_FACING_BACK) {
-                    cameraId = id;
-                    break;
+        if(this.cameraId != null) {
+            cameraId = this.cameraId;
+        } else {
+            try {
+                String[] cameraIdList = manager.getCameraIdList();
+                for (String id : cameraIdList) {
+                    CameraCharacteristics cameraCharacteristics = manager.getCameraCharacteristics(id);
+                    Integer integer = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
+                    if (integer != null && integer == LENS_FACING_BACK) {
+                        cameraId = id;
+                        break;
+                    }
                 }
+            } catch (CameraAccessException e) {
+                Log.w(TAG, "Error getting back camera.", e);
+                throw new RuntimeException(e);
             }
-        } catch (CameraAccessException e) {
-            Log.w(TAG, "Error getting back camera.", e);
-            throw new RuntimeException(e);
         }
-
         if (cameraId == null) {
             throw new QrReader.Exception(QrReader.Exception.Reason.noBackCamera);
         }
 
         try {
             cameraCharacteristics = manager.getCameraCharacteristics(cameraId);
-            StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            StreamConfigurationMap map = cameraCharacteristics
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             // it seems as though the orientation is already corrected, so setting to 0
             // orientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             orientation = 0;
@@ -131,6 +137,7 @@ class QrCameraC2 implements QrCamera {
 
                 @Override
                 public void onDisconnected(@NonNull CameraDevice device) {
+                    Log.i(TAG, "Camera disconnected");
                 }
 
                 @Override
@@ -181,7 +188,8 @@ class QrCameraC2 implements QrCamera {
             @Override
             public void onImageAvailable(ImageReader reader) {
                 try (Image image = reader.acquireLatestImage()) {
-                    if (image == null) return;
+                    if (image == null)
+                        return;
                     detector.detect(image);
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -239,12 +247,14 @@ class QrCameraC2 implements QrCamera {
     private void startPreview() {
         CameraCaptureSession.CaptureCallback listener = new CameraCaptureSession.CaptureCallback() {
             @Override
-            public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request,
+                    @NonNull TotalCaptureResult result) {
                 super.onCaptureCompleted(session, request, result);
             }
         };
 
-        if (cameraDevice == null) return;
+        if (cameraDevice == null)
+            return;
 
         try {
 
@@ -310,6 +320,5 @@ class QrCameraC2 implements QrCamera {
         }
         return s;
     }
-
 
 }
