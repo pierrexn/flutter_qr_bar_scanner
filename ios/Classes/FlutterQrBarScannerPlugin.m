@@ -56,7 +56,7 @@
 
     AVCaptureDevicePosition *position = AVCaptureDevicePositionBack;
 
-    if((cameraId != (id)[NSNull null] || cameraId.length != 0)) {
+    if((![cameraId isEqual:[NSNull null]]) && ([cameraId length] != 0)) {
        if([cameraId containsString:@"0"]) {
           position = AVCaptureDevicePositionBack;
        } else {
