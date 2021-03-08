@@ -32,12 +32,12 @@
 
 @property(nonatomic, copy) void (^onCodeAvailable)(NSString *);
 
-- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString) cameraId;
+- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString *) cameraId;
 @end
 
 @implementation QrReader
 
-- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString) cameraId {
+- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString *) cameraId {
     self = [super init];
     NSAssert(self, @"super init cannot be nil");
     _captureSession = [[AVCaptureSession alloc] init];
@@ -267,7 +267,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
                                        details: @"Expecting targetHeight, targetWidth, and optionally heartbeatTimeout"]);
             return;
         }
-        [self startWithCallback:^(int height, int width, int orientation, int64_t textureId, NSString cameraId) {
+        [self startWithCallback:^(int height, int width, int orientation, int64_t textureId, NSString* cameraId) {
             result(@{
                      @"surfaceHeight": @(height),
                      @"surfaceWidth": @(width),
@@ -289,7 +289,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     }
 }
 
-- (void)startWithCallback:(void (^)(int height, int width, int orientation, int64_t textureId, NSString cameraId))completedCallback orFailure:(void (^)(NSError *))failureCallback {
+- (void)startWithCallback:(void (^)(int height, int width, int orientation, int64_t textureId, NSString* cameraId))completedCallback orFailure:(void (^)(NSError *))failureCallback {
     
     if (_reader) {
         failureCallback([NSError errorWithDomain:@"flutter_qr_bar_scanner" code:1 userInfo:@{NSLocalizedDescriptionKey:NSLocalizedString(@"Reader already running.", nil)}]);
@@ -318,7 +318,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     [_reader start];
 
     ///////// texture, width, height
-    completedCallback(_reader.previewSize.width, _reader.previewSize.height, 0, textureId);
+    completedCallback(_reader.previewSize.width, _reader.previewSize.height, 0, textureId, cameraId);
 }
 
 - (void)stop {
