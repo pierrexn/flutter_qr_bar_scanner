@@ -273,7 +273,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
                      @"surfaceWidth": @(width),
                      @"surfaceOrientation": @(orientation),
                      @"textureId": @(textureId),
-                     @"cameraId": @(cameraId)
+                     @"cameraId": cameraId
                      });
         } orFailure: ^ (NSError *error) {
             result(error.flutterError);
@@ -297,7 +297,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     }
 
     NSError* localError = nil;
-    _reader = [[QrReader alloc] initWithErrorRefAndCameraId: &localError, cameraId];
+    _reader = [[QrReader alloc] initWithErrorRefAndCameraId: &localError, &cameraId];
 
     if (localError) {
         failureCallback(localError);
@@ -318,7 +318,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     [_reader start];
 
     ///////// texture, width, height
-    completedCallback(_reader.previewSize.width, _reader.previewSize.height, 0, textureId, cameraId);
+    completedCallback(_reader.previewSize.width, _reader.previewSize.height, 0, textureId, &cameraId);
 }
 
 - (void)stop {
