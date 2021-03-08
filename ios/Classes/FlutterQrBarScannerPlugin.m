@@ -32,12 +32,12 @@
 
 @property(nonatomic, copy) void (^onCodeAvailable)(NSString *);
 
-- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString *) cameraId;
+- (instancetype)initWithErrorRefAndCameraId:(NSError **)error, NSString *cameraId;
 @end
 
 @implementation QrReader
 
-- (instancetype)initWithErrorRefAndCameraId:(NSError **)error (NSString *) cameraId {
+- (instancetype)initWithErrorRefAndCameraId:(NSError **)error, NSString *cameraId {
     self = [super init];
     NSAssert(self, @"super init cannot be nil");
     _captureSession = [[AVCaptureSession alloc] init];
@@ -57,7 +57,7 @@
     AVCaptureDevicePosition *position = AVCaptureDevicePositionBack;
 
     if(cameraId != nil) {
-       if([string containsString:@"0"]) {
+       if([cameraId containsString:@"0"]) {
           position = AVCaptureDevicePositionBack;
        } else {
           position = AVCaptureDevicePositionFront;
@@ -65,10 +65,10 @@
     }
     
     if (@available(iOS 10.0, *)) {
-        _captureDevice = [AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera mediaType:AVMediaTypeVideo position:position];
+        _captureDevice = [AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera mediaType:AVMediaTypeVideo position:*position];
     } else {
         for(AVCaptureDevice* device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
-            if (device.position == position) {
+            if (device.position == *position) {
                 _captureDevice = device;
                 break;
             }
@@ -267,7 +267,8 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
                                        details: @"Expecting targetHeight, targetWidth, and optionally heartbeatTimeout"]);
             return;
         }
-        [self startWithCallback: cameraId onCallback: ^(int height, int width, int orientation, int64_t textureId) {
+        [self startWithCallback: cameraId
+                     onCallback: ^(int height, int width, int orientation, int64_t textureId) {
             result(@{
                      @"surfaceHeight": @(height),
                      @"surfaceWidth": @(width),
@@ -288,7 +289,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     }
 }
 
-- (void)startWithCallback:(NSString *) cameraId onCallback: (void (^)(int height, int width, int orientation, int64_t textureId, NSString* cameraId))completedCallback orFailure:(void (^)(NSError *))failureCallback {
+- (void)startWithCallback:(NSString *) cameraId onCallback: (void (^)(int height, int width, int orientation, int64_t textureId))completedCallback orFailure:(void (^)(NSError *))failureCallback {
     
     if (_reader) {
         failureCallback([NSError errorWithDomain:@"flutter_qr_bar_scanner" code:1 userInfo:@{NSLocalizedDescriptionKey:NSLocalizedString(@"Reader already running.", nil)}]);
@@ -296,7 +297,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     }
 
     NSError* localError = nil;
-    _reader = [[QrReader alloc] initWithErrorRefAndCameraId: &localError, cameraId: cameraId];
+    _reader = [[QrReader alloc] initWithErrorRefAndCameraId: &localError, cameraId];
 
     if (localError) {
         failureCallback(localError);
