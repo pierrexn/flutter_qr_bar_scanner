@@ -1,7 +1,8 @@
+
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 //class FlutterQrBarScanner {
 //  static const MethodChannel _channel =
@@ -15,10 +16,10 @@ import 'package:flutter/services.dart';
 
 
 class PreviewDetails {
-  num height;
-  num width;
-  num orientation;
-  int textureId;
+  num? height;
+  num? width;
+  num? orientation;
+  int? textureId;
 
   PreviewDetails(this.height, this.width, this.orientation, this.textureId);
 }
@@ -49,10 +50,10 @@ class FlutterQrReader {
   static QrChannelReader channelReader = new QrChannelReader(_channel);
   //Set target size before starting
   static Future<PreviewDetails> start({
-    @required int height,
-    @required int width,
-    @required QRCodeHandler qrCodeHandler,
-    List<BarcodeFormats> formats = _defaultBarcodeFormats,
+    required int height,
+    required int width,
+    required QRCodeHandler qrCodeHandler,
+    List<BarcodeFormats>? formats = _defaultBarcodeFormats,
   }) async {
     final _formats = formats ?? _defaultBarcodeFormats;
     assert(_formats.length > 0);
@@ -66,10 +67,10 @@ class FlutterQrReader {
     // invokeMethod returns Map<dynamic,...> in dart 2.0
     assert(details is Map<dynamic, dynamic>);
 
-    int textureId = details["textureId"];
-    num orientation = details["surfaceOrientation"];
-    num surfaceHeight = details["surfaceHeight"];
-    num surfaceWidth = details["surfaceWidth"];
+    int? textureId = details["textureId"];
+    num? orientation = details["surfaceOrientation"];
+    num? surfaceHeight = details["surfaceHeight"];
+    num? surfaceWidth = details["surfaceWidth"];
 
     return new PreviewDetails(surfaceHeight, surfaceWidth, orientation, textureId);
   }
@@ -83,8 +84,8 @@ class FlutterQrReader {
     return _channel.invokeMethod('heartbeat').catchError(print);
   }
 
-  static Future<List<List<int>>> getSupportedSizes() {
-    return _channel.invokeMethod('getSupportedSizes').catchError(print);
+  static Future<List<List<int>>?> getSupportedSizes() {
+    return _channel.invokeMethod('getSupportedSizes').catchError(print) as Future<List<List<int>>?>;
   }
 }
 
@@ -99,7 +100,7 @@ class QrChannelReader {
         case 'qrRead':
           if (qrCodeHandler != null) {
             assert(call.arguments is String);
-            qrCodeHandler(call.arguments);
+            qrCodeHandler!(call.arguments);
           }
           break;
         default:
@@ -109,10 +110,10 @@ class QrChannelReader {
     });
   }
 
-  void setQrCodeHandler(QRCodeHandler qrch) {
+  void setQrCodeHandler(QRCodeHandler? qrch) {
     this.qrCodeHandler = qrch;
   }
 
   MethodChannel channel;
-  QRCodeHandler qrCodeHandler;
+  QRCodeHandler? qrCodeHandler;
 }

@@ -20,8 +20,8 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
   final String title;
+  MyHomePage({Key? key, required this.title}) : super(key: key);
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
@@ -62,23 +62,23 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: _camState
           ? Center(
-              child: SizedBox(
-                height: 1000,
-                width: 500,
-                child: QRBarScannerCamera(
-                  onError: (context, error) => Text(
-                    error.toString(),
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  qrCodeCallback: (code) {
-                    _qrCallback(code);
-                  },
-                ),
-              ),
-            )
-          : Center(
-              child: Text(_qrInfo),
+        child: SizedBox(
+          height: 1000,
+          width: 500,
+          child: QRBarScannerCamera(
+            onError: (context, error) => Text(
+              error.toString(),
+              style: TextStyle(color: Colors.red),
             ),
+            qrCodeCallback: (code) {
+              _qrCallback(code);
+            },
+          ),
+        ),
+      )
+          : Center(
+        child: Text(_qrInfo),
+      ),
     );
   }
 }
